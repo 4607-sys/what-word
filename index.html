@@ -1,0 +1,2249 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>what word - เกมผจญภัยคำศัพท์ใต้ท้องทะเล</title>
+    <!-- นำเข้าฟอนต์ภาษาไทยและอังกฤษ (มี Fallback รองรับโหมด Offline สมบูรณ์ 100%) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* ==========================================================================
+           1. DESIGN TOKENS & PASTEL OCEAN THEME PALETTE
+           ========================================================================== */
+        :root {
+            /* โทนสีพลาสเทลตามโจทย์: ฟ้าอ่อน, เขียวมิ้นอ่อน, ชมพูอ่อน, เหลืองอ่อน */
+            --pastel-blue-light: #E0F7FA;
+            --pastel-blue: #B2EBF2;
+            --pastel-blue-deep: #80DEEA;
+            --pastel-mint-light: #E0F2F1;
+            --pastel-mint: #A7FFEB;
+            --pastel-mint-dark: #4DB6AC;
+            --pastel-pink-light: #FCE4EC;
+            --pastel-pink: #F8BBD0;
+            --pastel-pink-dark: #F06292;
+            --pastel-yellow-light: #FFFDE7;
+            --pastel-yellow: #FFF9C4;
+            --pastel-yellow-dark: #FDD835;
+            
+            --text-dark: #1E3A5F;
+            --text-muted: #547294;
+            --white-glass: rgba(255, 255, 255, 0.88);
+            --shadow-soft: 0 10px 25px rgba(30, 58, 95, 0.12);
+            --shadow-bubble: 0 6px 0 rgba(30, 58, 95, 0.15);
+            --radius-lg: 24px;
+            --radius-md: 16px;
+            --radius-sm: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Prompt', 'Sarabun', 'Kanit', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text-dark);
+            background: linear-gradient(180deg, var(--pastel-blue-light) 0%, var(--pastel-mint-light) 50%, var(--pastel-blue) 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: background 1s ease;
+        }
+
+        /* พื้นหลังตามความลึกของ 5 โซนมหาสมุทร (ยังคงความพลาสเทลสดใส) */
+        body.zone-1 { background: linear-gradient(180deg, #E0F7FA 0%, #E0F2F1 55%, #FFFDE7 100%); }
+        body.zone-2 { background: linear-gradient(180deg, #B2EBF2 0%, #E0F2F1 60%, #FCE4EC 100%); }
+        body.zone-3 { background: linear-gradient(180deg, #80DEEA 0%, #B2DFDB 60%, #FFF9C4 100%); }
+        body.zone-4 { background: linear-gradient(180deg, #4DD0E1 0%, #80CBC4 60%, #F8BBD0 100%); }
+        body.zone-5 { background: linear-gradient(180deg, #26C6DA 0%, #4DB6AC 55%, #E1BEE7 100%); }
+
+        /* ==========================================================================
+           2. ANIMATIONS & FLOATING BUBBLES
+           ========================================================================== */
+        @keyframes floatBubble {
+            0% { transform: translateY(105vh) scale(0.6); opacity: 0; }
+            20% { opacity: 0.75; }
+            80% { opacity: 0.75; }
+            100% { transform: translateY(-10vh) scale(1.15); opacity: 0; }
+        }
+
+        @keyframes swimIdle {
+            0%, 100% { transform: translateY(0px) rotate(-2deg); }
+            50% { transform: translateY(-12px) rotate(3deg); }
+        }
+
+        @keyframes shellPulse {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 6px 10px rgba(240, 98, 146, 0.25)); }
+            50% { transform: scale(1.06); filter: drop-shadow(0 10px 18px rgba(240, 98, 146, 0.45)); }
+        }
+
+        @keyframes swaySeaweed {
+            0%, 100% { transform: skewX(-4deg); }
+            50% { transform: skewX(4deg); }
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            70% { transform: scale(1.03); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes shakeWrong {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+
+        .bubbles-container {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 0;
+        }
+
+        .bubble {
+            position: absolute;
+            bottom: -50px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.9), rgba(255,255,255,0.25));
+            border: 1px solid rgba(255,255,255,0.6);
+            animation: floatBubble linear infinite;
+        }
+
+        /* ==========================================================================
+           3. LAYOUT & REUSABLE UI COMPONENTS
+           ========================================================================== */
+        .app-container {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 16px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .glass-card {
+            background: var(--white-glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 3px solid #FFFFFF;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-soft);
+        }
+
+        .btn {
+            font-family: inherit;
+            font-weight: 600;
+            border: none;
+            border-radius: 999px;
+            padding: 12px 24px;
+            font-size: 1rem;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: var(--shadow-bubble);
+            position: relative;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-3px);
+        }
+
+        .btn:active:not(:disabled) {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 rgba(30, 58, 95, 0.15);
+        }
+
+        .btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #FF80AB, #F06292);
+            color: white;
+        }
+
+        .btn-mint {
+            background: linear-gradient(135deg, #4DB6AC, #26A69A);
+            color: white;
+        }
+
+        .btn-yellow {
+            background: linear-gradient(135deg, #FFF176, #FFD54F);
+            color: var(--text-dark);
+        }
+
+        .btn-soft {
+            background: #FFFFFF;
+            color: var(--text-dark);
+            border: 2px solid var(--pastel-blue);
+        }
+
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 0.9rem;
+        }
+
+        .screen {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            animation: popIn 0.4s ease-out;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        /* ==========================================================================
+           4. TOP HEADER BAR
+           ========================================================================== */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 18px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: 'Fredoka', 'Prompt', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #00838F;
+        }
+
+        .top-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .badge-pill {
+            background: var(--pastel-yellow);
+            border: 2px solid #FFF59D;
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* ==========================================================================
+           5. START SCREEN
+           ========================================================================== */
+        .start-hero {
+            text-align: center;
+            padding: 32px 24px;
+            margin: auto;
+            max-width: 780px;
+            width: 100%;
+        }
+
+        .game-main-title {
+            font-family: 'Fredoka', 'Prompt', sans-serif;
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            color: #00838F;
+            text-shadow: 0 4px 0 #FFFFFF, 0 8px 16px rgba(0, 131, 143, 0.15);
+            margin-bottom: 6px;
+            letter-spacing: 1px;
+        }
+
+        .game-subtitle {
+            font-size: 1.15rem;
+            color: #F06292;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .how-to-play-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 14px;
+            margin: 22px 0;
+            text-align: left;
+        }
+
+        .guide-box {
+            background: var(--pastel-blue-light);
+            border: 2px solid #FFFFFF;
+            border-radius: var(--radius-md);
+            padding: 14px;
+        }
+
+        .guide-box.pink { background: var(--pastel-pink-light); }
+        .guide-box.mint { background: var(--pastel-mint-light); }
+        .guide-box.yellow { background: var(--pastel-yellow-light); }
+
+        .guide-box h4 {
+            font-size: 0.98rem;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .guide-box p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.45;
+        }
+
+        /* ตัวเลือกตัวละครนักดำน้ำ */
+        .character-selector {
+            margin: 20px 0;
+            padding: 14px;
+            background: rgba(255, 255, 255, 0.65);
+            border-radius: var(--radius-md);
+        }
+
+        .char-list {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .char-card {
+            background: #FFFFFF;
+            border: 3px solid var(--pastel-blue);
+            border-radius: var(--radius-md);
+            padding: 10px 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 118px;
+            text-align: center;
+            position: relative;
+        }
+
+        .char-card.selected {
+            border-color: #F06292;
+            background: var(--pastel-pink-light);
+            transform: translateY(-4px);
+        }
+
+        .char-card.locked {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background: #ECEFF1;
+        }
+
+        .char-card .char-name {
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+
+        .char-card .char-status {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        /* ==========================================================================
+           6. GAMEPLAY SCREEN (UNDERWATER SCENE)
+           ========================================================================== */
+        .hud-panel {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 18px;
+            margin-bottom: 14px;
+        }
+
+        @media (max-width: 700px) {
+            .hud-panel {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+        }
+
+        .zone-info h2 {
+            font-size: 1.15rem;
+            color: #00695C;
+        }
+
+        .zone-info p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* จิ๊กซอว์ 5 ชิ้นบน HUD */
+        .jigsaw-mini-bar {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background: var(--pastel-yellow-light);
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: 2px solid var(--pastel-yellow-dark);
+        }
+
+        .jigsaw-slot {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: #ECEFF1;
+            border: 2px dashed #B0BEC5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #90A4AE;
+            transition: all 0.4s;
+        }
+
+        .jigsaw-slot.unlocked {
+            background: linear-gradient(135deg, #FFD54F, #FF80AB);
+            border: 2px solid #FFFFFF;
+            color: #FFFFFF;
+            transform: scale(1.08);
+            box-shadow: 0 3px 8px rgba(240, 98, 146, 0.35);
+        }
+
+        .zone-progress-pills {
+            display: flex;
+            justify-content: flex-end;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 700px) {
+            .zone-progress-pills { justify-content: center; }
+        }
+
+        .zone-dot {
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            background: rgba(255,255,255,0.6);
+            border: 2px solid transparent;
+        }
+
+        .zone-dot.active {
+            background: #FFFFFF;
+            border-color: #F06292;
+            color: #F06292;
+        }
+
+        .zone-dot.done {
+            background: #A7FFEB;
+            color: #00695C;
+        }
+
+        /* พื้นที่ใต้มหาสมุทร (Ocean Stage) */
+        .ocean-stage {
+            position: relative;
+            flex: 1;
+            min-height: 430px;
+            border-radius: var(--radius-lg);
+            border: 4px solid #FFFFFF;
+            background: linear-gradient(180deg, rgba(255,255,255,0.25) 0%, rgba(178,235,242,0.45) 75%, rgba(255,249,196,0.85) 100%);
+            box-shadow: var(--shadow-soft);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        /* แสงอาทิตย์ส่องผ่านผิวน้ำ */
+        .sun-rays {
+            position: absolute;
+            top: -20px;
+            left: 10%;
+            width: 80%;
+            height: 220px;
+            background: linear-gradient(180deg, rgba(255, 253, 231, 0.55) 0%, rgba(255, 253, 231, 0) 100%);
+            clip-path: polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%);
+            pointer-events: none;
+        }
+
+        .stage-instruction {
+            position: relative;
+            z-index: 5;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.85);
+            padding: 8px 18px;
+            border-radius: 999px;
+            align-self: center;
+            font-size: 0.95rem;
+            font-weight: 600;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        }
+
+        /* ตัวละครนักดำน้ำ 2D ที่เคลื่อนที่ไปหาหอย */
+        .diver-actor {
+            position: absolute;
+            top: 22%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 130px;
+            height: 110px;
+            z-index: 6;
+            transition: left 0.7s cubic-bezier(0.34, 1.56, 0.64, 1), top 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+            pointer-events: none;
+        }
+
+        .diver-inner {
+            width: 100%;
+            height: 100%;
+            animation: swimIdle 3s ease-in-out infinite;
+        }
+
+        .diver-speech {
+            position: absolute;
+            top: -34px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #FFFFFF;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            white-space: nowrap;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+            border: 2px solid var(--pastel-pink);
+        }
+
+        /* พื้นทรายใต้ทะเลและหอยมุก 4 ตัว */
+        .seabed-area {
+            position: relative;
+            z-index: 5;
+            margin-top: auto;
+            padding-top: 90px;
+        }
+
+        .shells-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            max-width: 820px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 650px) {
+            .shells-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+        }
+
+        .shell-item {
+            background: rgba(255, 255, 255, 0.78);
+            border: 3px solid #FFFFFF;
+            border-radius: var(--radius-md);
+            padding: 12px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s;
+            position: relative;
+        }
+
+        .shell-item:hover:not(.collected) {
+            transform: translateY(-6px);
+            background: #FFFFFF;
+            border-color: var(--pastel-pink-dark);
+        }
+
+        .shell-item:not(.collected) .shell-svg {
+            animation: shellPulse 2.5s infinite ease-in-out;
+        }
+
+        .shell-item.collected {
+            background: var(--pastel-mint-light);
+            border-color: var(--pastel-mint-dark);
+            cursor: default;
+        }
+
+        .shell-label {
+            font-size: 0.88rem;
+            font-weight: 600;
+            margin-top: 6px;
+            color: var(--text-dark);
+        }
+
+        .shell-status-tag {
+            display: inline-block;
+            margin-top: 4px;
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: var(--pastel-pink-light);
+            color: #C2185B;
+        }
+
+        .shell-item.collected .shell-status-tag {
+            background: #A7FFEB;
+            color: #00695C;
+        }
+
+        /* ==========================================================================
+           7. CHALLENGE MODAL (เปิดหอยทำภารกิจ: Quiz / Memory / Matching + Spelling)
+           ========================================================================== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(30, 58, 95, 0.55);
+            backdrop-filter: blur(6px);
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .modal-overlay.open {
+            display: flex;
+            animation: popIn 0.25s ease-out;
+        }
+
+        .challenge-modal {
+            background: #FFFFFF;
+            border: 4px solid var(--pastel-blue);
+            border-radius: var(--radius-lg);
+            max-width: 560px;
+            width: 100%;
+            padding: 24px;
+            box-shadow: 0 20px 45px rgba(0,0,0,0.2);
+            position: relative;
+            max-height: 92vh;
+            overflow-y: auto;
+        }
+
+        .challenge-modal.shake {
+            animation: shakeWrong 0.4s ease;
+            border-color: #EF5350;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+            padding-bottom: 10px;
+            border-bottom: 2px dashed var(--pastel-blue);
+        }
+
+        .mode-badge {
+            background: var(--pastel-pink-light);
+            color: #C2185B;
+            padding: 4px 12px;
+            border-radius: 999px;
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+
+        .timer-box {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--pastel-yellow);
+            border: 2px solid var(--pastel-yellow-dark);
+            padding: 5px 14px;
+            border-radius: 999px;
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .timer-box.danger {
+            background: #FFEBEE;
+            border-color: #EF5350;
+            color: #C62828;
+            animation: shellPulse 0.6s infinite;
+        }
+
+        .clue-card {
+            background: linear-gradient(135deg, var(--pastel-blue-light), var(--pastel-mint-light));
+            border-radius: var(--radius-md);
+            padding: 16px;
+            text-align: center;
+            margin-bottom: 16px;
+            border: 2px solid var(--pastel-blue);
+        }
+
+        .clue-thai {
+            font-size: 1.45rem;
+            font-weight: 700;
+            color: #00695C;
+            margin: 4px 0;
+        }
+
+        .clue-context {
+            font-size: 0.92rem;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        /* ส่วนย่อยของรูปแบบเกมผสม (Quiz / Memory / Matching) */
+        .sub-activity-box {
+            background: var(--pastel-yellow-light);
+            border: 2px solid var(--pastel-yellow-dark);
+            border-radius: var(--radius-md);
+            padding: 14px;
+            margin-bottom: 16px;
+        }
+
+        .quiz-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        @media (max-width: 480px) {
+            .quiz-options { grid-template-columns: 1fr; }
+        }
+
+        .option-btn {
+            background: #FFFFFF;
+            border: 2px solid var(--pastel-blue);
+            border-radius: var(--radius-sm);
+            padding: 10px;
+            font-family: 'Fredoka', 'Prompt', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: var(--text-dark);
+        }
+
+        .option-btn:hover {
+            background: var(--pastel-blue-light);
+        }
+
+        .option-btn.selected-correct {
+            background: #A7FFEB;
+            border-color: #00897B;
+            color: #004D40;
+        }
+
+        /* Memory Flash Card */
+        .memory-flash {
+            text-align: center;
+            padding: 10px;
+        }
+
+        .memory-word-display {
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #D81B60;
+            letter-spacing: 2px;
+            background: #FFFFFF;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            display: inline-block;
+            margin: 6px 0;
+            border: 2px dashed #F06292;
+        }
+
+        /* ช่องพิมพ์สะกดคำศัพท์ (หัวใจหลักของเกม what word) */
+        .spelling-section {
+            text-align: center;
+        }
+
+        .letter-slots-preview {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .letter-box {
+            width: 32px;
+            height: 38px;
+            border-bottom: 3px solid #00838F;
+            background: var(--pastel-blue-light);
+            border-radius: 6px 6px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Fredoka', sans-serif;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #006064;
+            text-transform: uppercase;
+        }
+
+        .letter-box.space {
+            border-bottom: none;
+            background: transparent;
+            width: 14px;
+        }
+
+        .letter-box.hinted {
+            background: var(--pastel-pink-light);
+            color: #C2185B;
+            border-color: #F06292;
+        }
+
+        .spell-input {
+            width: 100%;
+            padding: 12px 16px;
+            font-family: 'Fredoka', 'Prompt', sans-serif;
+            font-size: 1.3rem;
+            text-align: center;
+            border: 3px solid var(--pastel-mint-dark);
+            border-radius: var(--radius-md);
+            outline: none;
+            color: var(--text-dark);
+            background: #FFFFFF;
+            margin-bottom: 12px;
+            letter-spacing: 1px;
+        }
+
+        .spell-input:focus {
+            border-color: #F06292;
+            box-shadow: 0 0 0 4px rgba(240, 98, 146, 0.15);
+        }
+
+        .hint-banner {
+            background: var(--pastel-pink-light);
+            color: #AD1457;
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            font-size: 0.88rem;
+            margin-bottom: 12px;
+            display: none;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* ==========================================================================
+           8. ZONE CLEAR / FAIL ALERT & SUMMARY DASHBOARD
+           ========================================================================== */
+        .feedback-overlay-card {
+            text-align: center;
+            padding: 28px 20px;
+        }
+
+        .jigsaw-reveal-box {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            max-width: 460px;
+            margin: 18px auto;
+            padding: 12px;
+            background: var(--pastel-blue-light);
+            border-radius: var(--radius-md);
+            border: 3px solid #FFFFFF;
+        }
+
+        .jigsaw-piece-card {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            background: #CFD8DC;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #607D8B;
+            padding: 4px;
+            transition: all 0.5s;
+        }
+
+        .jigsaw-piece-card.earned {
+            background: linear-gradient(135deg, #FFF59D, #F8BBD0, #A7FFEB);
+            color: var(--text-dark);
+            border: 2px solid #FFFFFF;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        /* Dashboard สรุปผลการเรียนรู้ */
+        .dashboard-container {
+            padding: 26px;
+            max-width: 880px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .stats-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 14px;
+            margin: 18px 0;
+        }
+
+        .stat-box {
+            background: #FFFFFF;
+            border-radius: var(--radius-md);
+            padding: 16px;
+            text-align: center;
+            border: 2px solid var(--pastel-blue);
+        }
+
+        .stat-value {
+            font-family: 'Fredoka', 'Prompt', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            color: #00838F;
+        }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .category-breakdown {
+            background: rgba(255,255,255,0.75);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            margin-bottom: 18px;
+        }
+
+        .cat-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #E0F2F1;
+            font-size: 0.92rem;
+        }
+
+        .cat-row:last-child { border-bottom: none; }
+
+        .recommendation-box {
+            background: var(--pastel-yellow-light);
+            border-left: 6px solid #F06292;
+            border-radius: var(--radius-sm);
+            padding: 14px 18px;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body class="zone-1">
+
+    <!-- ฟองอากาศลอยใต้น้ำ -->
+    <div class="bubbles-container" id="bubblesContainer"></div>
+
+    <div class="app-container">
+        <!-- แถบด้านบน (Header) -->
+        <header class="top-bar glass-card">
+            <div class="brand-logo">
+                <!-- ไอคอนเปลือกหอยมุก SVG -->
+                <svg width="34" height="34" viewBox="0 0 64 64" fill="none">
+                    <path d="M8 38C8 22 18 12 32 12C46 12 56 22 56 38C56 44 48 48 32 48C16 48 8 44 8 38Z" fill="#F8BBD0" stroke="#F06292" stroke-width="3"/>
+                    <path d="M18 46L14 18M26 47L24 14M32 48V12M38 47L40 14M46 46L50 18" stroke="#F48FB1" stroke-width="2" stroke-linecap="round"/>
+                    <circle cx="32" cy="40" r="8" fill="#FFFDE7" stroke="#FDD835" stroke-width="2.5"/>
+                    <path d="M12 46C18 54 46 54 52 46" stroke="#F06292" stroke-width="4" stroke-linecap="round"/>
+                </svg>
+                <span>what word</span>
+            </div>
+
+            <div class="top-controls">
+                <span class="badge-pill" id="bestRecordBadge">🏆 สถิติสูงสุด: 0/5 โซน</span>
+                <button class="btn btn-soft btn-sm" id="soundToggleBtn" onclick="toggleSound()">🔊 เสียง: เปิด</button>
+                <button class="btn btn-soft btn-sm" id="homeBtn" onclick="confirmReturnHome()" style="display:none;">🏠 หน้าหลัก</button>
+            </div>
+        </header>
+
+        <!-- ======================================================================
+             หน้าจอที่ 1: หน้าต้อนรับ (START SCREEN)
+             ====================================================================== -->
+        <section id="startScreen" class="screen active">
+            <div class="start-hero glass-card">
+                <div style="display:inline-block; background:var(--pastel-mint); padding:4px 16px; border-radius:999px; font-size:0.85rem; font-weight:600; color:#00695C; margin-bottom:8px;">
+                    วิชาภาษาอังกฤษเพื่อการสื่อสาร • เกมผจญภัยใต้มหาสมุทร
+                </div>
+                <h1 class="game-main-title">what word</h1>
+                <p class="game-subtitle">ดำดิ่งสู่ 5 โซนใต้ทะเลลึก เปิดหอยมุกทายคำศัพท์ สะสมจิ๊กซอว์พิชิตมหาสมุทร!</p>
+
+                <!-- วิธีเล่น -->
+                <div class="how-to-play-grid">
+                    <div class="guide-box">
+                        <h4>🐚 1. สำรวจ 5 โซนทะเลลึก</h4>
+                        <p>พานักดำน้ำลงไปเปิดหอยมุกโซนละ 4 คำ รวม 20 คำศัพท์พื้นฐานในชีวิตประจำวัน</p>
+                    </div>
+                    <div class="guide-box pink">
+                        <h4>⌨️ 2. ทายและสะกดคำให้เป๊ะ</h4>
+                        <p>สนุกกับ Quiz, Memory และ Matching แล้วพิมพ์สะกดคำศัพท์ภาษาอังกฤษให้ถูกต้อง</p>
+                    </div>
+                    <div class="guide-box yellow">
+                        <h4>⏱️ 3. ระวังเวลา & กติกาโซน</h4>
+                        <p>ใช้คำใบ้ได้ (เวลาลดลง 1 วินาที) หากตอบผิดหรือหมดเวลา <b>ต้องเริ่มโซนนั้นใหม่!</b></p>
+                    </div>
+                    <div class="guide-box mint">
+                        <h4>🧩 4. สะสมจิ๊กซอว์ & ตัวละคร</h4>
+                        <p>ผ่านแต่ละโซนเพื่อรับชิ้นส่วนจิ๊กซอว์ครบ 5 ชิ้น และปลดล็อกชุดนักดำน้ำสุดน่ารัก</p>
+                    </div>
+                </div>
+
+                <!-- เลือกตัวละครนักดำน้ำที่ปลดล็อกแล้ว -->
+                <div class="character-selector">
+                    <div style="font-weight: 600; font-size: 0.95rem; color: var(--text-dark);">
+                        🤿 เลือกตัวละครนักดำน้ำของคุณ (ปลดล็อกเพิ่มเมื่อผ่านด่าน!)
+                    </div>
+                    <div class="char-list" id="characterList"></div>
+                </div>
+
+                <div style="margin-top: 22px;">
+                    <button class="btn btn-primary" style="font-size: 1.2rem; padding: 14px 38px;" onclick="startNewGame()">
+                        🌊 เริ่มดำน้ำผจญภัยเลย!
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ======================================================================
+             หน้าจอที่ 2: หน้าจอเล่นเกม (GAMEPLAY SCREEN)
+             ====================================================================== -->
+        <section id="gameScreen" class="screen">
+            <!-- HUD แสดงสถานะโซนและจิ๊กซอว์ -->
+            <div class="hud-panel glass-card">
+                <div class="zone-info">
+                    <h2 id="hudZoneTitle">โซนที่ 1: แนวปะการังแสงอาทิตย์</h2>
+                    <p id="hudZoneTopic">หมวด: การทักทายและอารมณ์ความรู้สึก (Greetings & Feelings)</p>
+                </div>
+
+                <div class="jigsaw-mini-bar" title="ชิ้นส่วนจิ๊กซอว์ที่สะสมได้">
+                    <span style="font-size:0.82rem; font-weight:600; margin-right:4px;">🧩 จิ๊กซอว์:</span>
+                    <div class="jigsaw-slot" id="jigSlot0">1</div>
+                    <div class="jigsaw-slot" id="jigSlot1">2</div>
+                    <div class="jigsaw-slot" id="jigSlot2">3</div>
+                    <div class="jigsaw-slot" id="jigSlot3">4</div>
+                    <div class="jigsaw-slot" id="jigSlot4">5</div>
+                </div>
+
+                <div class="zone-progress-pills" id="zonePills"></div>
+            </div>
+
+            <!-- ฉากใต้มหาสมุทร 2D -->
+            <div class="ocean-stage" id="oceanStage">
+                <div class="sun-rays"></div>
+                
+                <div class="stage-instruction" id="stageInstruction">
+                    👇 แตะที่เปลือกหอยมุกด้านล่างเพื่อให้นักดำน้ำว่ายไปเปิดคำถาม (0/4)
+                </div>
+
+                <!-- ตัวละครนักดำน้ำ 2D SVG -->
+                <div class="diver-actor" id="diverActor">
+                    <div class="diver-speech" id="diverSpeech">พร้อมลุยแล้ว!</div>
+                    <div class="diver-inner" id="diverSvgContainer"></div>
+                </div>
+
+                <!-- สาหร่ายตกแต่งฉาก -->
+                <svg style="position:absolute; bottom:0; left:2%; width:80px; height:120px; pointer-events:none; animation: swaySeaweed 4s infinite ease-in-out;" viewBox="0 0 60 100">
+                    <path d="M20 100 Q5 75 22 50 T18 10" stroke="#4DB6AC" stroke-width="8" fill="none" stroke-linecap="round"/>
+                    <path d="M40 100 Q55 70 38 45 T42 15" stroke="#80CBC4" stroke-width="7" fill="none" stroke-linecap="round"/>
+                </svg>
+                <svg style="position:absolute; bottom:0; right:2%; width:80px; height:120px; pointer-events:none; animation: swaySeaweed 4.5s infinite ease-in-out;" viewBox="0 0 60 100">
+                    <path d="M25 100 Q10 70 28 45 T22 12" stroke="#4DB6AC" stroke-width="8" fill="none" stroke-linecap="round"/>
+                    <path d="M45 100 Q58 75 40 50 T46 18" stroke="#F48FB1" stroke-width="6" fill="none" stroke-linecap="round"/>
+                </svg>
+
+                <!-- พื้นทรายและเปลือกหอย 4 ตัว -->
+                <div class="seabed-area">
+                    <div class="shells-grid" id="shellsGrid"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ======================================================================
+             หน้าจอที่ 3: หน้าสรุปผลและแดชบอร์ดการเรียนรู้ (VICTORY / DASHBOARD)
+             ====================================================================== -->
+        <section id="summaryScreen" class="screen">
+            <div class="dashboard-container glass-card">
+                <div style="text-align:center;">
+                    <div style="font-size:3rem; margin-bottom:4px;">🎉🏆🌊</div>
+                    <h2 style="font-size:1.8rem; color:#00838F;">ภารกิจพิชิตมหาสมุทรสำเร็จ!</h2>
+                    <p style="color:var(--text-muted);">คุณรวบรวมชิ้นส่วนจิ๊กซอว์ครบทั้ง 5 โซนและเรียนรู้คำศัพท์ครบ 20 คำแล้ว</p>
+                </div>
+
+                <!-- ภาพจิ๊กซอว์สมบัติใต้ทะเลที่ประกอบเสร็จสมบูรณ์ -->
+                <div class="jigsaw-reveal-box" id="finalJigsawBoard"></div>
+
+                <!-- ตัวเลขสถิติการเรียนรู้ -->
+                <div class="stats-summary-grid">
+                    <div class="stat-box">
+                        <div class="stat-value" id="statAccuracy">100%</div>
+                        <div class="stat-label">อัตราความแม่นยำ (Accuracy)</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="statWords">20/20</div>
+                        <div class="stat-label">คำศัพท์ที่สะกดสำเร็จ</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="statHints">0</div>
+                        <div class="stat-label">จำนวนครั้งที่ใช้คำใบ้</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="statStars">⭐⭐⭐</div>
+                        <div class="stat-label">ระดับดาวความสำเร็จ</div>
+                    </div>
+                </div>
+
+                <!-- วิเคราะห์รายหมวดหมู่คำศัพท์ -->
+                <div class="category-breakdown">
+                    <h3 style="font-size:1.05rem; margin-bottom:10px; color:#00695C;">📊 ผลการประเมินรายหมวดหมู่คำศัพท์</h3>
+                    <div id="categoryReportList"></div>
+                </div>
+
+                <!-- ข้อเสนอแนะรายบุคคล -->
+                <div class="recommendation-box" id="personalRecommendation"></div>
+
+                <div style="text-align:center; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
+                    <button class="btn btn-primary" onclick="startNewGame()">🔄 เล่นอีกครั้ง (ฝึกความแม่นยำ)</button>
+                    <button class="btn btn-mint" onclick="goToStartScreen()">🤿 เปลี่ยนตัวละคร / หน้าหลัก</button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- ==========================================================================
+         MODAL 1: หน้าต่างเปิดหอยมุกทำภารกิจ (CHALLENGE MODAL)
+         ========================================================================== -->
+    <div class="modal-overlay" id="challengeModal">
+        <div class="challenge-modal" id="challengeModalBox">
+            <div class="modal-header">
+                <span class="mode-badge" id="modalModeBadge">โซน 1 • Quiz + Spelling</span>
+                <div class="timer-box" id="timerBox">
+                    ⏱️ <span id="timerValue">25</span> วินาที
+                </div>
+            </div>
+
+            <!-- ข้อมูลใบ้ความหมายคำศัพท์ -->
+            <div class="clue-card">
+                <div style="font-size:0.82rem; color:#00838F; font-weight:600;">ความหมายของคำศัพท์ในหอยมุกนี้คือ:</div>
+                <div class="clue-thai" id="clueThaiText">ตื่นเต้น</div>
+                <div class="clue-context" id="clueContextText">"She is very _______ about her trip to the sea."</div>
+            </div>
+
+            <!-- กิจกรรมเสริมตามประเภทเกมผสม (Quiz / Memory / Matching) -->
+            <div class="sub-activity-box" id="subActivityBox"></div>
+
+            <!-- ส่วนพิมพ์สะกดคำศัพท์ภาษาอังกฤษ -->
+            <div class="spelling-section">
+                <div style="font-size:0.88rem; font-weight:600; margin-bottom:8px; color:var(--text-dark);">
+                    ⌨️ พิมพ์สะกดคำศัพท์ภาษาอังกฤษให้ถูกต้อง:
+                </div>
+                
+                <!-- ช่องแสดงจำนวนตัวอักษร -->
+                <div class="letter-slots-preview" id="letterSlotsPreview"></div>
+
+                <div class="hint-banner" id="hintBanner"></div>
+
+                <input type="text" id="spellInput" class="spell-input" placeholder="พิมพ์คำศัพท์ภาษาอังกฤษที่นี่..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-yellow btn-sm" id="hintBtn" onclick="useHint()">
+                        💡 คำใบ้ (-1 วินาที)
+                    </button>
+                    <button type="button" class="btn btn-mint" onclick="submitWordAnswer()">
+                        ✨ ยืนยันคำตอบ
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================================================
+         MODAL 2: แจ้งเตือนผลลัพธ์ (ผ่านโซน / ตอบผิดเริ่มโซนใหม่ / ยืนยันออก)
+         ========================================================================== -->
+    <div class="modal-overlay" id="feedbackModal">
+        <div class="challenge-modal feedback-overlay-card" id="feedbackModalBox">
+            <div id="feedbackIcon" style="font-size:3.5rem; margin-bottom:8px;">🧩</div>
+            <h3 id="feedbackTitle" style="font-size:1.45rem; color:#00838F; margin-bottom:8px;">ยินดีด้วย!</h3>
+            <p id="feedbackMessage" style="color:var(--text-muted); line-height:1.55; margin-bottom:18px;"></p>
+            <div id="feedbackExtra"></div>
+            <div class="modal-actions" id="feedbackButtons"></div>
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================================================
+           [ส่วนที่ 1: คลังข้อมูลบทเรียนและคำศัพท์ - ครูผู้สอนสามารถแก้ไขได้ง่ายตรงนี้]
+           ========================================================================== */
+        const GAME_DATA = [
+            {
+                zoneId: 1,
+                zoneName: "โซนที่ 1: แนวปะการังแสงอาทิตย์ (Sunlight Reef)",
+                categoryThai: "การทักทายและอารมณ์ความรู้สึก",
+                categoryEng: "Greetings & Feelings",
+                modeType: "quiz",
+                modeLabel: "โหมด Quiz + สะกดคำ",
+                timeLimit: 25,
+                puzzlePieceTitle: "ชิ้นที่ 1: เข็มทิศปะการัง",
+                puzzleIcon: "🧭",
+                words: [
+                    {
+                        word: "Excited",
+                        thai: "ตื่นเต้น, ดีใจมาก",
+                        context: "I am so _______ to see the colorful fish!",
+                        distractors: ["Nervous", "Grateful", "Confident"],
+                        hintClue: "ขึ้นต้นด้วย Ex... แปลว่ารู้สึกตื่นเต้นยินดี"
+                    },
+                    {
+                        word: "Confident",
+                        thai: "มั่นใจในตนเอง",
+                        context: "Speak clearly and feel _______ when you talk.",
+                        distractors: ["Excited", "Nervous", "Pharmacy"],
+                        hintClue: "ขึ้นต้นด้วย Con... ลงท้ายด้วย dent"
+                    },
+                    {
+                        word: "Nervous",
+                        thai: "ประหม่า, กังวลใจ",
+                        context: "He felt a little _______ before his English speech.",
+                        distractors: ["Confident", "Grateful", "Delicious"],
+                        hintClue: "ขึ้นต้นด้วย Ner... ตรงข้ามกับความมั่นใจ"
+                    },
+                    {
+                        word: "Grateful",
+                        thai: "รู้สึกขอบคุณ, ซาบซึ้งใจ",
+                        context: "We are _______ for your kind help today.",
+                        distractors: ["Excited", "Schedule", "Beverage"],
+                        hintClue: "ขึ้นต้นด้วย Grate... ลงท้ายด้วย ful"
+                    }
+                ]
+            },
+            {
+                zoneId: 2,
+                zoneName: "โซนที่ 2: ทุ่งหญ้าทะเลสีมินต์ (Mint Seagrass)",
+                categoryThai: "สถานที่และทิศทาง",
+                categoryEng: "Places & Directions",
+                modeType: "memory",
+                modeLabel: "โหมด Memory จำคำศัพท์ + สะกดคำ",
+                timeLimit: 23,
+                puzzlePieceTitle: "ชิ้นที่ 2: แผนที่ไข่มุก",
+                puzzleIcon: "🗺️",
+                words: [
+                    {
+                        word: "Intersection",
+                        thai: "สี่แยก, จุดตัดถนน",
+                        context: "Turn left at the next _______.",
+                        distractors: ["Destination", "Departure", "Ingredient"],
+                        hintClue: "Inter + section (สี่แยกถนน)"
+                    },
+                    {
+                        word: "Destination",
+                        thai: "จุดหมายปลายทาง",
+                        context: "We finally arrived at our holiday _______.",
+                        distractors: ["Intersection", "Assignment", "Itinerary"],
+                        hintClue: "ขึ้นต้นด้วย Des... ลงท้ายด้วย nation"
+                    },
+                    {
+                        word: "Pharmacy",
+                        thai: "ร้านขายยา",
+                        context: "You can buy medicine at the _______.",
+                        distractors: ["Beverage", "Schedule", "Departure"],
+                        hintClue: "ขึ้นต้นด้วย Phar... ออกเสียง ฟาร์-มา-ซี"
+                    },
+                    {
+                        word: "Convenience store",
+                        thai: "ร้านสะดวกซื้อ (มีเว้นวรรค)",
+                        context: "Let's buy some snacks at the _______.",
+                        distractors: ["Boarding pass", "Accommodation", "Intersection"],
+                        hintClue: "2 คำ: Convenience + store (อย่าลืมเว้นวรรค)"
+                    }
+                ]
+            },
+            {
+                zoneId: 3,
+                zoneName: "โซนที่ 3: ถ้ำคริสตัลสีชมพู (Pastel Coral Cave)",
+                categoryThai: "การเดินทางและท่องเที่ยว",
+                categoryEng: "Travel & Transport",
+                modeType: "matching",
+                modeLabel: "โหมด Matching จับคู่ + สะกดคำ",
+                timeLimit: 20,
+                puzzlePieceTitle: "ชิ้นที่ 3: กุญแจหอยสังข์",
+                puzzleIcon: "🔑",
+                words: [
+                    {
+                        word: "Itinerary",
+                        thai: "กำหนดการเดินทาง",
+                        context: "Check our travel _______ before packing bags.",
+                        distractors: ["Departure", "Ingredient", "Collaborate"],
+                        hintClue: "ขึ้นต้นด้วย Iti... ลงท้ายด้วย nary"
+                    },
+                    {
+                        word: "Departure",
+                        thai: "ขาออก, การออกเดินทาง",
+                        context: "Our flight _______ time is 9:00 AM.",
+                        distractors: ["Itinerary", "Pharmacy", "Recommend"],
+                        hintClue: "ขึ้นต้นด้วย De + part + ure"
+                    },
+                    {
+                        word: "Boarding pass",
+                        thai: "บัตรขึ้นเครื่อง (มีเว้นวรรค)",
+                        context: "Please show your _______ at the gate.",
+                        distractors: ["Convenience store", "Destination", "Assignment"],
+                        hintClue: "2 คำ: Boarding + pass (อย่าลืมเว้นวรรค)"
+                    },
+                    {
+                        word: "Accommodation",
+                        thai: "ที่พักอาศัย, โรงแรม",
+                        context: "We booked beachside _______ for two nights.",
+                        distractors: ["Intersection", "Collaborate", "Confident"],
+                        hintClue: "ขึ้นต้นด้วย Accom... ลงท้ายด้วย dation (มี c 2 ตัว, m 2 ตัว)"
+                    }
+                ]
+            },
+            {
+                zoneId: 4,
+                zoneName: "โซนที่ 4: ป่าสาหร่ายเรืองแสง (Luminous Kelp Forest)",
+                categoryThai: "การทำงานและการเรียน",
+                categoryEng: "Work & Study",
+                modeType: "quiz",
+                modeLabel: "โหมด Context Quiz + สะกดคำ",
+                timeLimit: 18,
+                puzzlePieceTitle: "ชิ้นที่ 4: ตะเกียงใต้สมุทร",
+                puzzleIcon: "🏮",
+                words: [
+                    {
+                        word: "Deadline",
+                        thai: "กำหนดส่งงาน, เส้นตาย",
+                        context: "The _______ for this project is tomorrow.",
+                        distractors: ["Schedule", "Beverage", "Departure"],
+                        hintClue: "Dead + line (กำหนดส่งงาน)"
+                    },
+                    {
+                        word: "Schedule",
+                        thai: "ตารางเวลา, ตารางเรียน",
+                        context: "Look at your class _______ for Monday.",
+                        distractors: ["Deadline", "Pharmacy", "Grateful"],
+                        hintClue: "ขึ้นต้นด้วย Sch... ออกเสียง สเก็ด-จูล"
+                    },
+                    {
+                        word: "Assignment",
+                        thai: "งานที่ได้รับมอบหมาย, การบ้าน",
+                        context: "I finished my English _______ last night.",
+                        distractors: ["Accommodation", "Ingredient", "Excited"],
+                        hintClue: "Assign + ment (มี s 2 ตัว)"
+                    },
+                    {
+                        word: "Collaborate",
+                        thai: "ร่วมมือกัน, ทำงานร่วมกัน",
+                        context: "Students _______ in teams to solve puzzles.",
+                        distractors: ["Recommend", "Destination", "Confident"],
+                        hintClue: "ขึ้นต้นด้วย Collab... (มี l 2 ตัว)"
+                    }
+                ]
+            },
+            {
+                zoneId: 5,
+                zoneName: "โซนที่ 5: หุบเหวมหาสมุทรสมบัติ (Deep Treasure Trench)",
+                categoryThai: "อาหารและร้านอาหาร",
+                categoryEng: "Food & Dining",
+                modeType: "memory",
+                modeLabel: "โหมด Master Challenge + สะกดคำ",
+                timeLimit: 16,
+                puzzlePieceTitle: "ชิ้นที่ 5: หีบสมบัติราชาสมุทร",
+                puzzleIcon: "👑",
+                words: [
+                    {
+                        word: "Beverage",
+                        thai: "เครื่องดื่ม",
+                        context: "Would you like a cold _______ with your meal?",
+                        distractors: ["Ingredient", "Pharmacy", "Schedule"],
+                        hintClue: "ขึ้นต้นด้วย Bev... ลงท้ายด้วย rage"
+                    },
+                    {
+                        word: "Ingredient",
+                        thai: "ส่วนผสม, วัตถุดิบทำอาหาร",
+                        context: "Fresh coconut is the main _______ in this dish.",
+                        distractors: ["Beverage", "Assignment", "Itinerary"],
+                        hintClue: "ขึ้นต้นด้วย In + gre + dient"
+                    },
+                    {
+                        word: "Recommend",
+                        thai: "แนะนำ",
+                        context: "What dish do you _______ at this restaurant?",
+                        distractors: ["Collaborate", "Delicious", "Nervous"],
+                        hintClue: "Re + com + mend (มี m 2 ตัว)"
+                    },
+                    {
+                        word: "Delicious",
+                        thai: "อร่อย",
+                        context: "This seafood soup is really _______!",
+                        distractors: ["Grateful", "Excited", "Confident"],
+                        hintClue: "ขึ้นต้นด้วย Deli... ลงท้ายด้วย cious"
+                    }
+                ]
+            }
+        ];
+
+        /* รายชื่อตัวละครนักดำน้ำที่ปลดล็อกได้ตามจำนวนโซนที่ผ่าน */
+        const DIVER_CHARACTERS = [
+            { id: 0, name: "นักดำน้ำฝึกหัด", unlockZone: 0, suitColor: "#FF80AB", maskColor: "#FFF59D", badge: "🤿" },
+            { id: 1, name: "นักสำรวจปะการัง", unlockZone: 1, suitColor: "#4DB6AC", maskColor: "#E0F7FA", badge: "🐠" },
+            { id: 2, name: "ผู้พิทักษ์ไข่มุก", unlockZone: 2, suitColor: "#9575CD", maskColor: "#F8BBD0", badge: "🦪" },
+            { id: 3, name: "กัปตันเรือดำน้ำ", unlockZone: 3, suitColor: "#FFB74D", maskColor: "#FFF9C4", badge: "🚢" },
+            { id: 4, name: "จ้าวสมุทรในตำนาน", unlockZone: 4, suitColor: "#26C6DA", maskColor: "#FFD54F", badge: "👑" }
+        ];
+
+        /* ==========================================================================
+           [ส่วนที่ 2: ตัวแปรสถานะของเกม (GAME STATE) และ LOCALSTORAGE]
+           ========================================================================== */
+        let gameState = {
+            currentZoneIndex: 0,          // 0 ถึง 4
+            collectedInZone: [],          // เก็บ index ของหอยที่เปิดสำเร็จในโซนปัจจุบัน [0,1,2,3]
+            unlockedJigsaw: [false, false, false, false, false],
+            selectedCharacter: 0,
+            highestZoneCleared: 0,        // บันทึกลง LocalStorage
+            soundEnabled: true,
+            
+            // สถิติสำหรับ Dashboard ประเมินผล
+            totalAttempts: 0,
+            correctAttempts: 0,
+            hintsUsed: 0,
+            categoryMistakes: [0, 0, 0, 0, 0], // นับจำนวนครั้งที่พลาดแยกตาม 5 หมวด
+            
+            // สถานะของคำถามที่กำลังเปิดอยู่
+            activeWordIndex: null,
+            activeWordObj: null,
+            timeRemaining: 25,
+            timerInterval: null,
+            hintCountForCurrentWord: 0,
+            subTaskCompleted: false
+        };
+
+        /* ==========================================================================
+           [ส่วนที่ 3: ระบบเสียงสังเคราะห์ WEB AUDIO API (ทำงาน OFFLINE 100%)]
+           ========================================================================== */
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (AudioContextClass) {
+                    audioCtx = new AudioContextClass();
+                }
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type) {
+            if (!gameState.soundEnabled) return;
+            try {
+                initAudio();
+                if (!audioCtx) return;
+
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'bubble') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(380, now);
+                    osc.frequency.exponentialRampToValueAtTime(760, now + 0.12);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+                    osc.start(now);
+                    osc.stop(now + 0.13);
+                } else if (type === 'correct') {
+                    // เสียงตัวโน้ตสดใส C5 -> E5 -> G5
+                    const notes = [523.25, 659.25, 783.99];
+                    notes.forEach((freq, idx) => {
+                        const o = audioCtx.createOscillator();
+                        const g = audioCtx.createGain();
+                        o.type = 'triangle';
+                        o.frequency.setValueAtTime(freq, now + idx * 0.08);
+                        g.gain.setValueAtTime(0.18, now + idx * 0.08);
+                        g.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.08 + 0.25);
+                        o.connect(g);
+                        g.connect(audioCtx.destination);
+                        o.start(now + idx * 0.08);
+                        o.stop(now + idx * 0.08 + 0.26);
+                    });
+                } else if (type === 'wrong') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(200, now);
+                    osc.frequency.linearRampToValueAtTime(130, now + 0.35);
+                    gain.gain.setValueAtTime(0.18, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.36);
+                    osc.start(now);
+                    osc.stop(now + 0.37);
+                } else if (type === 'tick') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(880, now);
+                    gain.gain.setValueAtTime(0.06, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                    osc.start(now);
+                    osc.stop(now + 0.06);
+                } else if (type === 'victory') {
+                    const fanfare = [523.25, 659.25, 783.99, 1046.50];
+                    fanfare.forEach((freq, idx) => {
+                        const o = audioCtx.createOscillator();
+                        const g = audioCtx.createGain();
+                        o.type = 'triangle';
+                        o.frequency.setValueAtTime(freq, now + idx * 0.12);
+                        g.gain.setValueAtTime(0.2, now + idx * 0.12);
+                        g.gain.exponentialRampToValueAtTime(0.01, now + idx * 0.12 + 0.4);
+                        o.connect(g);
+                        g.connect(audioCtx.destination);
+                        o.start(now + idx * 0.12);
+                        o.stop(now + idx * 0.12 + 0.42);
+                    });
+                }
+            } catch (e) {
+                // ป้องกัน Error หากเบราว์เซอร์บล็อกเสียง
+            }
+        }
+
+        function toggleSound() {
+            gameState.soundEnabled = !gameState.soundEnabled;
+            const btn = document.getElementById('soundToggleBtn');
+            btn.textContent = gameState.soundEnabled ? '🔊 เสียง: เปิด' : '🔇 เสียง: ปิด';
+            if (gameState.soundEnabled) playSound('bubble');
+        }
+
+        /* ==========================================================================
+           [ส่วนที่ 4: การสร้างกราฟิก SVG ตัวละครนักดำน้ำและเปลือกหอย]
+           ========================================================================== */
+        function getDiverSVG(charId = 0) {
+            const char = DIVER_CHARACTERS[charId] || DIVER_CHARACTERS[0];
+            return `
+            <svg viewBox="0 0 140 110" width="100%" height="100%" fill="none">
+                <!-- ฟองอากาศจากท่อหายใจ -->
+                <circle cx="95" cy="14" r="4" fill="#FFFFFF" opacity="0.85"/>
+                <circle cx="103" cy="6" r="2.5" fill="#FFFFFF" opacity="0.7"/>
+                <!-- ตีนกบ (Flippers) -->
+                <path d="M12 62 L2 52 L6 70 Z" fill="${char.maskColor}" stroke="#1E3A5F" stroke-width="2"/>
+                <path d="M14 74 L2 82 L10 88 Z" fill="${char.maskColor}" stroke="#1E3A5F" stroke-width="2"/>
+                <!-- ถังออกซิเจน -->
+                <rect x="36" y="34" width="34" height="14" rx="7" fill="#FFF59D" stroke="#1E3A5F" stroke-width="2.5"/>
+                <!-- ลำตัวชุดดำน้ำ -->
+                <ellipse cx="56" cy="62" rx="28" ry="15" fill="${char.suitColor}" stroke="#1E3A5F" stroke-width="2.5"/>
+                <!-- แขนยื่นไปข้างหน้า -->
+                <path d="M68 66 Q84 74 96 68" stroke="${char.suitColor}" stroke-width="8" stroke-linecap="round"/>
+                <path d="M68 66 Q84 74 96 68" stroke="#1E3A5F" stroke-width="2.5" stroke-linecap="round"/>
+                <!-- ศีรษะและหมวกดำน้ำ -->
+                <circle cx="92" cy="50" r="18" fill="${char.suitColor}" stroke="#1E3A5F" stroke-width="2.5"/>
+                <!-- ใบหน้า -->
+                <circle cx="96" cy="50" r="13" fill="#FFE0B2"/>
+                <!-- แว่นตาดำน้ำ -->
+                <rect x="92" y="42" width="16" height="11" rx="5" fill="#E0F7FA" stroke="#1E3A5F" stroke-width="2.5"/>
+                <!-- ท่อ Snorkel -->
+                <path d="M98 58 L106 58 L106 24" stroke="#F06292" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+                <!-- รอยยิ้ม -->
+                <path d="M96 57 Q100 60 103 57" stroke="#1E3A5F" stroke-width="2" stroke-linecap="round" fill="none"/>
+                <!-- มงกุฎพิเศษสำหรับตัวละครระดับสูง -->
+                ${charId >= 4 ? '<path d="M84 31 L88 23 L93 30 L98 22 L102 31 Z" fill="#FFD54F" stroke="#1E3A5F" stroke-width="1.5"/>' : ''}
+            </svg>`;
+        }
+
+        function getShellSVG(isCollected) {
+            if (isCollected) {
+                // หอยเปิดออกโชว์ไข่มุกเรืองแสง
+                return `
+                <svg class="shell-svg" width="76" height="68" viewBox="0 0 80 72" fill="none">
+                    <!-- ฝาหอยด้านบนเปิดขึ้น -->
+                    <path d="M14 34 C14 14 26 6 40 6 C54 6 66 14 66 34 C56 38 24 38 14 34 Z" fill="#F8BBD0" stroke="#F06292" stroke-width="2.5"/>
+                    <!-- ไข่มุกส่องประกาย -->
+                    <circle cx="40" cy="43" r="12" fill="#FFFDE7" stroke="#FDD835" stroke-width="3"/>
+                    <circle cx="36" cy="39" r="3" fill="#FFFFFF"/>
+                    <!-- ฝาหอยด้านล่าง -->
+                    <path d="M12 46 C12 58 24 64 40 64 C56 64 68 58 68 46 C54 52 26 52 12 46 Z" fill="#F48FB1" stroke="#C2185B" stroke-width="2.5"/>
+                </svg>`;
+            }
+            // หอยปิดสนิทรอการเปิด
+            return `
+            <svg class="shell-svg" width="76" height="68" viewBox="0 0 80 72" fill="none">
+                <path d="M10 46 C10 24 22 12 40 12 C58 12 70 24 70 46 C70 55 58 60 40 60 C22 60 10 55 10 46 Z" fill="#F8BBD0" stroke="#F06292" stroke-width="3"/>
+                <path d="M22 57 L18 20 M31 59 L29 14 M40 60 V12 M49 59 L51 14 M58 57 L62 20" stroke="#F48FB1" stroke-width="2.2" stroke-linecap="round"/>
+                <path d="M14 54 C24 63 56 63 66 54" stroke="#C2185B" stroke-width="4" stroke-linecap="round"/>
+                <text x="40" y="42" text-anchor="middle" fill="#AD1457" font-family="Fredoka, sans-serif" font-size="16" font-weight="bold">?</text>
+            </svg>`;
+        }
+
+        /* ==========================================================================
+           [ส่วนที่ 5: ฟังก์ชันเริ่มต้นระบบ โหลดข้อมูล LocalStorage และสร้างฟองอากาศ]
+           ========================================================================== */
+        window.onload = function() {
+            loadSavedProgress();
+            createFloatingBubbles();
+            renderCharacterSelector();
+            updateBestRecordUI();
+        };
+
+        function loadSavedProgress() {
+            try {
+                const saved = localStorage.getItem('what_word_ocean_save_v1');
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    gameState.highestZoneCleared = parsed.highestZoneCleared || 0;
+                    gameState.selectedCharacter = parsed.selectedCharacter || 0;
+                }
+            } catch (e) {
+                console.warn('LocalStorage unavailable');
+            }
+        }
+
+        function saveProgress() {
+            try {
+                localStorage.setItem('what_word_ocean_save_v1', JSON.stringify({
+                    highestZoneCleared: gameState.highestZoneCleared,
+                    selectedCharacter: gameState.selectedCharacter
+                }));
+            } catch (e) {}
+            updateBestRecordUI();
+        }
+
+        function updateBestRecordUI() {
+            document.getElementById('bestRecordBadge').textContent = 
+                `🏆 สถิติสูงสุด: ${gameState.highestZoneCleared}/5 โซน`;
+        }
+
+        function createFloatingBubbles() {
+            const container = document.getElementById('bubblesContainer');
+            container.innerHTML = '';
+            for (let i = 0; i < 18; i++) {
+                const bubble = document.createElement('div');
+                bubble.className = 'bubble';
+                const size = Math.random() * 24 + 10;
+                bubble.style.width = `${size}px`;
+                bubble.style.height = `${size}px`;
+                bubble.style.left = `${Math.random() * 100}%`;
+                bubble.style.animationDuration = `${Math.random() * 8 + 7}s`;
+                bubble.style.animationDelay = `${Math.random() * 6}s`;
+                container.appendChild(bubble);
+            }
+        }
+
+        function renderCharacterSelector() {
+            const list = document.getElementById('characterList');
+            list.innerHTML = '';
+            DIVER_CHARACTERS.forEach((char) => {
+                const isUnlocked = gameState.highestZoneCleared >= char.unlockZone;
+                const isSelected = gameState.selectedCharacter === char.id;
+                const card = document.createElement('div');
+                card.className = `char-card ${isSelected ? 'selected' : ''} ${!isUnlocked ? 'locked' : ''}`;
+                card.innerHTML = `
+                    <div style="width:76px; height:60px; margin:0 auto;">${getDiverSVG(char.id)}</div>
+                    <div class="char-name">${char.badge} ${char.name}</div>
+                    <div class="char-status">${isUnlocked ? (isSelected ? '✅ กำลังใช้งาน' : 'แตะเพื่อเลือก') : `🔒 ผ่านโซน ${char.unlockZone}`}</div>
+                `;
+                if (isUnlocked) {
+                    card.onclick = () => {
+                        playSound('bubble');
+                        gameState.selectedCharacter = char.id;
+                        saveProgress();
+                        renderCharacterSelector();
+                    };
+                }
+                list.appendChild(card);
+            });
+        }
+
+        function switchScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+            document.getElementById('homeBtn').style.display = (screenId === 'startScreen') ? 'none' : 'inline-flex';
+        }
+
+        function goToStartScreen() {
+            stopTimer();
+            closeAllModals();
+            document.body.className = 'zone-1';
+            renderCharacterSelector();
+            switchScreen('startScreen');
+        }
+
+        function confirmReturnHome() {
+            showFeedbackModal(
+                '🏠',
+                'กลับสู่หน้าหลัก?',
+                'ความคืบหน้าในรอบการเล่นปัจจุบันจะไม่ถูกบันทึก คุณต้องการกลับหน้าหลักใช่หรือไม่?',
+                '',
+                [
+                    { text: 'เล่นต่อ', class: 'btn-mint', action: () => closeFeedbackModal() },
+                    { text: 'กลับหน้าหลัก', class: 'btn-soft', action: () => goToStartScreen() }
+                ]
+            );
+        }
+
+        /* ==========================================================================
+           [ส่วนที่ 6: การเริ่มเกมและการแสดงผลฉากใต้น้ำแต่ละโซน]
+           ========================================================================== */
+        function startNewGame() {
+            playSound('bubble');
+            gameState.currentZoneIndex = 0;
+            gameState.collectedInZone = [];
+            gameState.unlockedJigsaw = [false, false, false, false, false];
+            gameState.totalAttempts = 0;
+            gameState.correctAttempts = 0;
+            gameState.hintsUsed = 0;
+            gameState.categoryMistakes = [0, 0, 0, 0, 0];
+
+            switchScreen('gameScreen');
+            loadZone(0);
+        }
+
+        function loadZone(zoneIndex) {
+            gameState.currentZoneIndex = zoneIndex;
+            gameState.collectedInZone = [];
+            const zoneData = GAME_DATA[zoneIndex];
+
+            // เปลี่ยนสีพื้นหลังตามระดับความลึกของโซน
+            document.body.className = `zone-${zoneIndex + 1}`;
+
+            // อัปเดต HUD
+            document.getElementById('hudZoneTitle').textContent = zoneData.zoneName;
+            document.getElementById('hudZoneTopic').textContent = `หมวด: ${zoneData.categoryThai} (${zoneData.categoryEng}) • ${zoneData.modeLabel}`;
+            
+            // อัปเดตจุดบอกสถานะทั้ง 5 โซน
+            const pillsContainer = document.getElementById('zonePills');
+            pillsContainer.innerHTML = '';
+            GAME_DATA.forEach((z, idx) => {
+                const pill = document.createElement('span');
+                pill.className = `zone-dot ${idx === zoneIndex ? 'active' : ''} ${gameState.unlockedJigsaw[idx] ? 'done' : ''}`;
+                pill.textContent = gameState.unlockedJigsaw[idx] ? `โซน ${idx + 1} ✓` : `โซน ${idx + 1}`;
+                pillsContainer.appendChild(pill);
+            });
+
+            // อัปเดตช่องจิ๊กซอว์
+            for (let i = 0; i < 5; i++) {
+                const slot = document.getElementById(`jigSlot${i}`);
+                if (gameState.unlockedJigsaw[i]) {
+                    slot.classList.add('unlocked');
+                    slot.textContent = GAME_DATA[i].puzzleIcon;
+                } else {
+                    slot.classList.remove('unlocked');
+                    slot.textContent = i + 1;
+                }
+            }
+
+            // ตั้งค่านักดำน้ำ
+            const diverActor = document.getElementById('diverActor');
+            diverActor.style.left = '50%';
+            diverActor.style.top = '22%';
+            document.getElementById('diverSvgContainer').innerHTML = getDiverSVG(gameState.selectedCharacter);
+            document.getElementById('diverSpeech').textContent = `สำรวจโซนที่ ${zoneIndex + 1} กันเลย!`;
+
+            renderShellsInZone();
+        }
+
+        function renderShellsInZone() {
+            const zoneData = GAME_DATA[gameState.currentZoneIndex];
+            const grid = document.getElementById('shellsGrid');
+            grid.innerHTML = '';
+
+            document.getElementById('stageInstruction').textContent = 
+                `👇 แตะที่เปลือกหอยมุกด้านล่างเพื่อเปิดคำถาม (${gameState.collectedInZone.length}/4 คำ)`;
+
+            zoneData.words.forEach((wordObj, idx) => {
+                const isCollected = gameState.collectedInZone.includes(idx);
+                const shellCard = document.createElement('div');
+                shellCard.className = `shell-item ${isCollected ? 'collected' : ''}`;
+                shellCard.innerHTML = `
+                    <div>${getShellSVG(isCollected)}</div>
+                    <div class="shell-label">${isCollected ? wordObj.word : `หอยมุกใบที่ ${idx + 1}`}</div>
+                    <div class="shell-status-tag">${isCollected ? `✨ ${wordObj.thai}` : 'แตะเพื่อเปิด'}</div>
+                `;
+
+                if (!isCollected) {
+                    shellCard.onclick = () => swimToShellAndOpen(idx, shellCard);
+                }
+                grid.appendChild(shellCard);
+            });
+        }
+
+        function swimToShellAndOpen(wordIndex, shellElement) {
+            playSound('bubble');
+            const stage = document.getElementById('oceanStage').getBoundingClientRect();
+            const shellRect = shellElement.getBoundingClientRect();
+            
+            // คำนวณตำแหน่งให้นักดำน้ำว่ายเข้าไปหาหอยที่เลือก
+            const targetLeftPercent = ((shellRect.left + shellRect.width / 2 - stage.left) / stage.width) * 100;
+            const diver = document.getElementById('diverActor');
+            diver.style.left = `${Math.max(15, Math.min(85, targetLeftPercent))}%`;
+            diver.style.top = '42%';
+            document.getElementById('diverSpeech').textContent = 'เจอหอยมุกแล้ว!';
+
+            setTimeout(() => {
+                openChallengeModal(wordIndex);
+            }, 420);
+        }
+
+        /* ==========================================================================
+           [ส่วนที่ 7: ระบบเปิดหอยมุกทำภารกิจ (QUIZ / MEMORY / MATCHING + SPELLING)]
+           ========================================================================== */
+        function openChallengeModal(wordIndex) {
+            const zoneData = GAME_DATA[gameState.currentZoneIndex];
+            const wordObj = zoneData.words[wordIndex];
+
+            gameState.activeWordIndex = wordIndex;
+            gameState.activeWordObj = wordObj;
+            gameState.timeRemaining = zoneData.timeLimit;
+            gameState.hintCountForCurrentWord = 0;
+            gameState.subTaskCompleted = false;
+
+            // ตั้งค่า Header และคำใบ้
+            document.getElementById('modalModeBadge').textContent = `โซน ${zoneData.zoneId} • ${zoneData.modeLabel}`;
+            document.getElementById('clueThaiText').textContent = wordObj.thai;
+            document.getElementById('clueContextText').textContent = `"${wordObj.context}"`;
+
+            // รีเซ็ตกล่องคำใบ้และ Input
+            const hintBanner = document.getElementById('hintBanner');
+            hintBanner.style.display = 'none';
+            hintBanner.textContent = '';
+
+            const spellInput = document.getElementById('spellInput');
+            spellInput.value = '';
+            spellInput.disabled = false;
+
+            // สร้างกิจกรรมเสริมตามประเภทของโซน (Quiz / Memory / Matching)
+            buildSubActivity(zoneData, wordObj);
+
+            // สร้างช่องแสดงตัวอักษร
+            renderLetterSlots(wordObj.word, 0);
+
+            // เปิด Modal และเริ่มนับถอยหลัง
+            const modal = document.getElementById('challengeModal');
+            document.getElementById('challengeModalBox').classList.remove('shake');
+            modal.classList.add('open');
+            
+            setTimeout(() => spellInput.focus(), 150);
+            startQuestionTimer();
+        }
+
+        function buildSubActivity(zoneData, wordObj) {
+            const box = document.getElementById('subActivityBox');
+            box.innerHTML = '';
+
+            if (zoneData.modeType === 'quiz') {
+                // โหมด Quiz: เลือกคำศัพท์ที่ตรงกับความหมายก่อนสะกดยืนยัน
+                const options = shuffleArray([wordObj.word, ...wordObj.distractors]);
+                box.innerHTML = `
+                    <div style="font-size:0.86rem; font-weight:600; color:#5D4037;">
+                        🎯 ขั้นที่ 1 (Quiz): เลือกคำศัพท์ภาษาอังกฤษที่ตรงกับความหมายด้านบน
+                    </div>
+                    <div class="quiz-options" id="quizOptionsGrid"></div>
+                `;
+                const grid = box.querySelector('#quizOptionsGrid');
+                options.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'option-btn';
+                    btn.textContent = opt;
+                    btn.onclick = () => {
+                        if (opt.toLowerCase() === wordObj.word.toLowerCase()) {
+                            playSound('bubble');
+                            btn.classList.add('selected-correct');
+                            document.getElementById('spellInput').value = opt;
+                            renderLetterSlots(wordObj.word, opt.length);
+                        } else {
+                            // ตอบ Quiz ผิด -> ถือว่าพลาดและต้องเริ่มโซนใหม่ตามกติกา
+                            handleWrongOrTimeout('ตอบตัวเลือกผิด! คำตอบที่ถูกต้องคือ "' + wordObj.word + '"');
+                        }
+                    };
+                    grid.appendChild(btn);
+                });
+            } else if (zoneData.modeType === 'memory') {
+                // โหมด Memory: แสดงคำศัพท์ให้จำ 3.5 วินาที แล้วซ่อนให้พิมพ์สะกดเอง
+                box.innerHTML = `
+                    <div class="memory-flash">
+                        <div style="font-size:0.86rem; font-weight:600; color:#5D4037;">
+                            🧠 โหมด Memory: รีบจดจำการสะกดคำนี้ก่อนที่จะหายไป!
+                        </div>
+                        <div class="memory-word-display" id="memoryWordFlash">${wordObj.word}</div>
+                        <div style="font-size:0.78rem; color:#8D6E63;" id="memoryStatusText">กำลังแสดงคำศัพท์ 3.5 วินาที...</div>
+                    </div>
+                `;
+                setTimeout(() => {
+                    const flashEl = document.getElementById('memoryWordFlash');
+                    const statusEl = document.getElementById('memoryStatusText');
+                    if (flashEl && document.getElementById('challengeModal').classList.contains('open')) {
+                        flashEl.textContent = '• • • • •';
+                        flashEl.style.color = '#90A4AE';
+                        statusEl.textContent = 'ซ่อนคำศัพท์แล้ว! พิมพ์สะกดคำจากความทรงจำด้านล่างได้เลย';
+                    }
+                }, 3500);
+            } else if (zoneData.modeType === 'matching') {
+                // โหมด Matching: จับคู่ความหมายภาษาไทยกับคำศัพท์ จากนั้นพิมพ์สะกด
+                const pairWords = shuffleArray([wordObj, ...zoneData.words.filter(w => w.word !== wordObj.word).slice(0, 2)]);
+                box.innerHTML = `
+                    <div style="font-size:0.86rem; font-weight:600; color:#5D4037; margin-bottom:8px;">
+                        🔗 โหมด Matching: แตะจับคู่คำศัพท์ที่ตรงกับ "${wordObj.thai}"
+                    </div>
+                    <div class="quiz-options" id="matchOptionsGrid"></div>
+                `;
+                const grid = box.querySelector('#matchOptionsGrid');
+                pairWords.forEach(item => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'option-btn';
+                    btn.textContent = `${item.word}`;
+                    btn.onclick = () => {
+                        if (item.word === wordObj.word) {
+                            playSound('bubble');
+                            btn.classList.add('selected-correct');
+                            document.getElementById('spellInput').focus();
+                        } else {
+                            handleWrongOrTimeout(`จับคู่ผิด! "${item.word}" แปลว่า "${item.thai}"`);
+                        }
+                    };
+                    grid.appendChild(btn);
+                });
+            }
+        }
+
+        function renderLetterSlots(targetWord, revealedCount) {
+            const container = document.getElementById('letterSlotsPreview');
+            container.innerHTML = '';
+            const currentTyped = document.getElementById('spellInput').value;
+
+            for (let i = 0; i < targetWord.length; i++) {
+                const ch = targetWord[i];
+                const slot = document.createElement('div');
+                if (ch === ' ') {
+                    slot.className = 'letter-box space';
+                } else {
+                    slot.className = 'letter-box';
+                    if (currentTyped[i]) {
+                        slot.textContent = currentTyped[i];
+                    } else if (i < revealedCount) {
+                        slot.textContent = ch;
+                        slot.classList.add('hinted');
+                    }
+                }
+                container.appendChild(slot);
+            }
+        }
+
+        // อัปเดตช่องตัวอักษรแบบ Real-time ขณะพิมพ์
+        document.getElementById('spellInput').addEventListener('input', function() {
+            if (gameState.activeWordObj) {
+                renderLetterSlots(gameState.activeWordObj.word, gameState.hintCountForCurrentWord);
+            }
+        });
+
+        // กด Enter เพื่อส่งคำตอบได้ทันที
+        document.getElementById('spellInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                submitWordAnswer();
+            }
+        });
+
+        /* ==========================================================================
+           [ส่วนที่ 8: ระบบจับเวลาและระบบคำใบ้ (ใช้คำใบ้เวลาลดลง 1 วินาที)]
+           ========================================================================== */
+        function startQuestionTimer() {
+            stopTimer();
+            updateTimerUI();
+            gameState.timerInterval = setInterval(() => {
+                gameState.timeRemaining--;
+                updateTimerUI();
+                if (gameState.timeRemaining <= 5 && gameState.timeRemaining > 0) {
+                    playSound('tick');
+                }
+                if (gameState.timeRemaining <= 0) {
+                    stopTimer();
+                    handleWrongOrTimeout('หมดเวลาแล้ว! คุณใช้เวลาเกินกำหนด');
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (gameState.timerInterval) {
+                clearInterval(gameState.timerInterval);
+                gameState.timerInterval = null;
+            }
+        }
+
+        function updateTimerUI() {
+            const timerVal = document.getElementById('timerValue');
+            const timerBox = document.getElementById('timerBox');
+            timerVal.textContent = Math.max(0, gameState.timeRemaining);
+            if (gameState.timeRemaining <= 5) {
+                timerBox.classList.add('danger');
+            } else {
+                timerBox.classList.remove('danger');
+            }
+        }
+
+        function useHint() {
+            if (!gameState.activeWordObj || gameState.timeRemaining <= 1) return;
+            playSound('bubble');
+
+            // หักเวลา 1 วินาทีตามกติกา
+            gameState.timeRemaining = Math.max(1, gameState.timeRemaining - 1);
+            gameState.hintsUsed++;
+            gameState.hintCountForCurrentWord++;
+            updateTimerUI();
+
+            const wordObj = gameState.activeWordObj;
+            const hintBanner = document.getElementById('hintBanner');
+            hintBanner.style.display = 'block';
+            hintBanner.innerHTML = `💡 <b>คำใบ้ (-1 วินาที):</b> ${wordObj.hintClue} (มีทั้งหมด ${wordObj.word.length} ตัวอักษร)`;
+
+            // เปิดเผยตัวอักษรเพิ่มทีละตัว
+            renderLetterSlots(wordObj.word, gameState.hintCountForCurrentWord);
+            document.getElementById('spellInput').focus();
+        }
+
+        /* ==========================================================================
+           [ส่วนที่ 9: การตรวจคำตอบ เงื่อนไขชนะ/แพ้ และการย้อนกลับไปเริ่มโซนใหม่]
+           ========================================================================== */
+        function submitWordAnswer() {
+            if (!gameState.activeWordObj) return;
+            const userInput = document.getElementById('spellInput').value.trim().replace(/\s+/g, ' ');
+            if (!userInput) {
+                document.getElementById('spellInput').focus();
+                return;
+            }
+
+            stopTimer();
+            gameState.totalAttempts++;
+            const targetWord = gameState.activeWordObj.word;
+
+            if (userInput.toLowerCase() === targetWord.toLowerCase()) {
+                // ตอบถูกต้อง!
+                gameState.correctAttempts++;
+                playSound('correct');
+                
+                document.getElementById('challengeModal').classList.remove('open');
+                gameState.collectedInZone.push(gameState.activeWordIndex);
+                document.getElementById('diverSpeech').textContent = `ยอดเยี่ยม! "${targetWord}"`;
+                
+                renderShellsInZone();
+
+                // ตรวจสอบว่าเก็บครบ 4 หอยในโซนนี้หรือยัง
+                if (gameState.collectedInZone.length === 4) {
+                    setTimeout(() => completeCurrentZone(), 500);
+                }
+            } else {
+                // ตอบผิด -> บันทึกสถิติและต้องกลับไปเริ่มโซนนี้ใหม่ตามเงื่อนไขเกม
+                handleWrongOrTimeout(`สะกดผิด! คุณพิมพ์ "${userInput}" แต่คำที่ถูกต้องคือ "${targetWord}"`);
+            }
+        }
+
+        function handleWrongOrTimeout(reasonText) {
+            stopTimer();
+            playSound('wrong');
+            gameState.categoryMistakes[gameState.currentZoneIndex]++;
+
+            const modalBox = document.getElementById('challengeModalBox');
+            modalBox.classList.add('shake');
+
+            setTimeout(() => {
+                document.getElementById('challengeModal').classList.remove('open');
+                showFeedbackModal(
+                    '🫧',
+                    'โอ๊ะโอ! หอยมุกปิดตัวลงแล้ว',
+                    `${reasonText}<br><br>ตามกติกาการผจญภัย <b>ต้องย้อนกลับไปเริ่มเก็บหอยมุกในโซนที่ ${gameState.currentZoneIndex + 1} ใหม่อีกครั้ง</b> สู้ๆ นะ!`,
+                    '',
+                    [
+                        {
+                            text: `🔄 เริ่มโซนที่ ${gameState.currentZoneIndex + 1} ใหม่`,
+                            class: 'btn-primary',
+                            action: () => {
+                                closeFeedbackModal();
+                                loadZone(gameState.currentZoneIndex);
+                            }
+                        }
+                    ]
+                );
+            }, 350);
+        }
+
+        function completeCurrentZone() {
+            playSound('victory');
+            const zIdx = gameState.currentZoneIndex;
+            const zoneData = GAME_DATA[zIdx];
+
+            // ปลดล็อกชิ้นส่วนจิ๊กซอว์ประจำโซน
+            gameState.unlockedJigsaw[zIdx] = true;
+            document.getElementById(`jigSlot${zIdx}`).classList.add('unlocked');
+            document.getElementById(`jigSlot${zIdx}`).textContent = zoneData.puzzleIcon;
+
+            // บันทึกสถิติโซนสูงสุดที่ผ่าน และปลดล็อกตัวละคร
+            if (zIdx + 1 > gameState.highestZoneCleared) {
+                gameState.highestZoneCleared = zIdx + 1;
+                saveProgress();
+            }
+
+            // ตรวจสอบว่าปลดล็อกตัวละครใหม่หรือไม่
+            const newlyUnlockedChar = DIVER_CHARACTERS.find(c => c.unlockZone === zIdx + 1);
+            let unlockNotice = '';
+            if (newlyUnlockedChar) {
+                unlockNotice = `<div style="background:var(--pastel-mint-light); padding:10px; border-radius:12px; margin-bottom:14px; font-weight:600; color:#00695C;">
+                    🎁 ปลดล็อกตัวละครใหม่: ${newlyUnlockedChar.badge} ${newlyUnlockedChar.name}!
+                </div>`;
+            }
+
+            const isLastZone = (zIdx === GAME_DATA.length - 1);
+
+            showFeedbackModal(
+                zoneData.puzzleIcon,
+                `ผ่าน${zoneData.zoneName}!`,
+                `คุณสะกดคำศัพท์หมวด <b>${zoneData.categoryThai}</b> ครบทั้ง 4 คำ และได้รับ <b>"${zoneData.puzzlePieceTitle}"</b> (${zIdx + 1}/5 ชิ้น)`,
+                unlockNotice,
+                [
+                    {
+                        text: isLastZone ? '🏆 ดูสรุปผลและจิ๊กซอว์ฉบับสมบูรณ์' : `🌊 ดำน้ำลงสู่โซนที่ ${zIdx + 2} ต่อเลย!`,
+                        class: 'btn-primary',
+                        action: () => {
+                            closeFeedbackModal();
+                            if (isLastZone) {
+                                showSummaryDashboard();
+                            } else {
+                                loadZone(zIdx + 1);
+                            }
+                        }
+                    }
+                ]
+            );
+        }
+
+        /* ==========================================================================
+           [ส่วนที่ 10: หน้าสรุปผลการเรียนรู้และแดชบอร์ดวิเคราะห์ (DASHBOARD)]
+           ========================================================================== */
+        function showSummaryDashboard() {
+            playSound('victory');
+            switchScreen('summaryScreen');
+
+            // 1. แสดงภาพจิ๊กซอว์ทั้ง 5 ชิ้นที่ประกอบเสร็จ
+            const jigBoard = document.getElementById('finalJigsawBoard');
+            jigBoard.innerHTML = '';
+            GAME_DATA.forEach((z) => {
+                const piece = document.createElement('div');
+                piece.className = 'jigsaw-piece-card earned';
+                piece.innerHTML = `
+                    <div style="font-size:1.8rem; margin-bottom:4px;">${z.puzzleIcon}</div>
+                    <div>${z.puzzlePieceTitle}</div>
+                `;
+                jigBoard.appendChild(piece);
+            });
+
+            // 2. คำนวณอัตราความแม่นยำ (Accuracy Rate)
+            const total = Math.max(20, gameState.totalAttempts);
+            const accuracy = Math.round((gameState.correctAttempts / total) * 100);
+            document.getElementById('statAccuracy').textContent = `${accuracy}%`;
+            document.getElementById('statWords').textContent = `20/20`;
+            document.getElementById('statHints').textContent = `${gameState.hintsUsed} ครั้ง`;
+
+            let stars = '⭐⭐⭐';
+            if (accuracy < 60) stars = '⭐';
+            else if (accuracy < 85) stars = '⭐⭐';
+            document.getElementById('statStars').textContent = stars;
+
+            // 3. แสดงผลแยกตามรายหมวดหมู่ทั้ง 5 หมวด
+            const catList = document.getElementById('categoryReportList');
+            catList.innerHTML = '';
+            let weakestCategory = null;
+            let maxMistakes = 0;
+
+            GAME_DATA.forEach((z, idx) => {
+                const mistakes = gameState.categoryMistakes[idx];
+                if (mistakes > maxMistakes) {
+                    maxMistakes = mistakes;
+                    weakestCategory = z;
+                }
+                const statusBadge = mistakes === 0 
+                    ? `<span style="color:#00897B; font-weight:600;">✅ ผ่านฉลุย (ไม่พลาดเลย)</span>`
+                    : `<span style="color:#E65100; font-weight:600;">⚠️ ทบทวนเพิ่มเติม (พลาด ${mistakes} ครั้ง)</span>`;
+
+                const row = document.createElement('div');
+                row.className = 'cat-row';
+                row.innerHTML = `
+                    <div><b>โซน ${z.zoneId}:</b> ${z.categoryThai} <span style="color:var(--text-muted); font-size:0.82rem;">(${z.categoryEng})</span></div>
+                    <div>${statusBadge}</div>
+                `;
+                catList.appendChild(row);
+            });
+
+            // 4. ข้อเสนอแนะรายบุคคลตามจุดที่ต้องพัฒนาเพิ่มเติม
+            const recBox = document.getElementById('personalRecommendation');
+            if (maxMistakes === 0 && gameState.hintsUsed <= 2) {
+                recBox.innerHTML = `
+                    <b>🌟 คำแนะนำรายบุคคล:</b> ยอดเยี่ยมมาก! คุณมีความแม่นยำในการจดจำและสะกดคำศัพท์ภาษาอังกฤษทั้ง 5 หมวดหมู่ในระดับดีเยี่ยม สามารถนำคำศัพท์เหล่านี้ไปฝึกแต่งประโยคสนทนาในชีวิตประจำวันต่อได้เลยครับ
+                `;
+            } else if (weakestCategory) {
+                const sampleWords = weakestCategory.words.map(w => `${w.word} (${w.thai})`).join(', ');
+                recBox.innerHTML = `
+                    <b>💡 คำแนะนำรายบุคคล:</b> คุณทำภารกิจสำเร็จครบทุกโซนแล้ว! แต่ควรฝึกทบทวนการสะกดคำในหมวด <b>"${weakestCategory.categoryThai} (${weakestCategory.categoryEng})"</b> เพิ่มเติมอีกนิด ได้แก่คำว่า: <i>${sampleWords}</i> ลองฝึกเขียนและออกเสียงซ้ำจะช่วยให้จำได้แม่นยำขึ้นครับ
+                `;
+            } else {
+                recBox.innerHTML = `
+                    <b>💡 คำแนะนำรายบุคคล:</b> ทำได้ดีมากครับ! คุณผ่านครบทุกด่านแล้ว ลองท้าทายตัวเองอีกครั้งโดยลดการใช้คำใบ้ (Hint) เพื่อฝึกความคล่องแคล่วในการสะกดคำศัพท์ภาษาอังกฤษให้เร็วยิ่งขึ้นนะครับ
+                `;
+            }
+        }
+
+        /* ==========================================================================
+           [ส่วนที่ 11: UTILITY FUNCTIONS (MODAL & SHUFFLE)]
+           ========================================================================== */
+        function showFeedbackModal(icon, title, messageHtml, extraHtml, buttons) {
+            document.getElementById('feedbackIcon').textContent = icon;
+            document.getElementById('feedbackTitle').textContent = title;
+            document.getElementById('feedbackMessage').innerHTML = messageHtml;
+            document.getElementById('feedbackExtra').innerHTML = extraHtml;
+
+            const btnContainer = document.getElementById('feedbackButtons');
+            btnContainer.innerHTML = '';
+            buttons.forEach(b => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `btn ${b.class}`;
+                btn.textContent = b.text;
+                btn.onclick = b.action;
+                btnContainer.appendChild(btn);
+            });
+
+            document.getElementById('feedbackModal').classList.add('open');
+        }
+
+        function closeFeedbackModal() {
+            document.getElementById('feedbackModal').classList.remove('open');
+        }
+
+        function closeAllModals() {
+            document.getElementById('challengeModal').classList.remove('open');
+            document.getElementById('feedbackModal').classList.remove('open');
+        }
+
+        function shuffleArray(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+    </script>
+</body>
+</html>
